@@ -1,7 +1,6 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import shortid from "shortid";
 import cors from "cors";
 
 const app = express();
@@ -9,32 +8,53 @@ app.use(cors());
 const server = createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-const users = {}; // Store user IDs and socket connections
+const users = {}; 
 
 io.on("connection", (socket) => {
-    const userId = shortid.generate();
-    users[userId] = socket.id;
+    console.log("New frontend connected:", socket.id);
 
-    console.log(`✅ New frontend connected: ${userId}`);
-    socket.emit("your-id", userId);
+    socket.on("myEmail", (email) => {
+        if (!email) {
+            console.error("Email is required.");
+            return;
+        }
+        console.log("User registered with email:", email);
+        users[email] = socket.id; 
+        socket.email = email;
+        socket.emit("email-registered", { message: "Email registered successfully." });
+    });
 
-    socket.on("screen-data", ({ id, data }) => {
-        const targetSocketId = users[id];
+
+    socket.on("screen-data", ({ pEmail, data }) => {
+        const targetSocketId = users[pEmail];
         if (targetSocketId) {
-            io.to(targetSocketId).emit("screen-data", data);
+            io.to(targetSocketId).emit("screen-data", data); 
+            socket.emit("connected-to-partner"); 
+        } else {
+            console.log("Target user not found:", pEmail);
+            socket.emit("partner-not-found", { message: "Partner not found." });
         }
     });
 
     socket.on("disconnect", () => {
-        console.log(`❌ User disconnected: ${userId}`);
-        delete users[userId];
+        const email = socket.email; 
+        if (email) {
+            console.log(`User disconnected: ${email}`);
+            delete users[email]; 
+            io.emit("user-disconnected", { email }); 
+        }
     });
 });
-
-// Required for Vercel
-export default app;
 
 app.get("/", (req, res) => {
     res.send("Server running");
 });
-server.listen(8080, () => console.log("🚀 Server running on http://localhost:8080"));
+
+
+// server.listen(8080, () => console.log("Server running on http://localhost:8080"));
+server.listen(8787, "23.98.93.20", () => {
+    console.log("Server running on http://23.98.93.20:8787");
+});
+
+
+export default app;
